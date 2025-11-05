@@ -15,6 +15,7 @@
         .chat-container {
             max-width: 700px;
             height: 85vh; /* 85% of viewport height */
+            position: relative;
         }
         .message-area {
             height: calc(100% - 7rem); /* Height minus input box */
@@ -37,29 +38,49 @@
             background-color: #93c5fd; /* Light blue scrollbar */
             border-radius: 4px;
         }
+        /* Language button styling */
+        .lang-btn {
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: background-color 0.2s;
+        }
+        .lang-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .lang-btn.active {
+            background-color: #ffffff;
+            color: #3b82f6;
+            font-weight: 600;
+            border-color: #ffffff;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center p-4 sm:p-8">
 
     <div class="chat-container w-full bg-white rounded-xl shadow-2xl flex flex-col">
-        <header class="p-4 border-b border-blue-200 bg-blue-600 rounded-t-xl text-white">
-            <h1 class="text-2xl font-bold">⚡ EV Diagnostic Chatbot</h1>
-            <p class="text-sm opacity-90">ඔබගේ EV ගැටලු ගැන විශේෂඥයාගෙන් අහන්න. (Ask your EV problems from the expert.)</p>
+        <header class="p-4 border-b border-blue-200 bg-blue-600 rounded-t-xl text-white flex justify-between items-center">
+            <div>
+                <h1 id="header-title" class="text-2xl font-bold">⚡ EV Diagnostic Chatbot</h1>
+                <p id="header-subtitle" class="text-sm opacity-90">ඔබගේ EV ගැටලු ගැන විශේෂඥයාගෙන් අහන්න.</p>
+            </div>
+            <!-- Language Selector -->
+            <div class="flex items-center space-x-2">
+                <button id="lang-si-btn" onclick="setLanguage('si')" class="lang-btn active">සිංහල</button>
+                <button id="lang-en-btn" onclick="setLanguage('en')" class="lang-btn">EN</button>
+            </div>
+            
         </header>
 
         <!-- Message Display Area -->
         <div id="chat-container" class="message-area overflow-y-auto p-4 flex flex-col space-y-4">
-            <!-- Initial welcome message -->
-            <div class="flex justify-start">
-                <div class="ai-message p-3 rounded-xl rounded-tl-sm max-w-xs md:max-w-md shadow-md text-sm">
-                    **ආයුබෝවන්!** මම ඔබගේ EV රෝග විනිශ්චය සහයක (Diagnostic Expert). ඔබගේ වාහනයේ ඇති ගැටලුව හෝ දෝෂ කේතය (Error Code) සිංහලෙන් හෝ ඉංග්‍රීසියෙන් ඇතුළත් කරන්න. මම එය විශ්ලේෂණය කර පිළියම් යෝජනා කරන්නම්.
-                </div>
-            </div>
+            <!-- Initial welcome message will be added by JavaScript -->
         </div>
 
         <!-- Input Area -->
-        <div class="p-4 border-t border-gray-200 flex items-center h-28">
-            <textarea id="user-input-field" rows="2" placeholder="උදා: Battery pack එකේ power loss වෙනවා වගේ දැනෙනවා..."
+        <div class="p-4 border-t border-gray-200 flex items-center h-28 relative z-0">
+            <textarea id="user-input-field" rows="2"
                       class="flex-grow p-3 border-2 border-gray-300 rounded-lg resize-none focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-base"
                       onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
             
@@ -98,16 +119,44 @@
         }
         
         // --- GEMINI API CONSTANTS AND STATE ---
-        // NOTE: Replace "" with your actual API key if running locally on your computer!
         const apiKey = "AIzaSyDnbihne9d01hcr6kSK8Dp66d4ZeeH1q-g"; 
         const model = "gemini-2.5-flash-preview-09-2025";
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-        // Chat History state to maintain context
         let chatHistory = []; 
+        let currentLanguage = 'si'; // Default language
+        let systemPrompt = ''; // Will be set by setLanguage
 
-        const systemPrompt = `You are an expert Electric Vehicle (EV) diagnostic technician. Your role is to provide step-by-step troubleshooting, explain technical faults, and offer practical advice to the user. Respond to all queries in a helpful, conversational manner, primarily using Sinhala while mixing in necessary English technical terms (like 'Error Code', 'BMS', 'Inverter'). Keep the conversation context relevant to EV diagnosis.`;
-
+        // --- TRANSLATION OBJECT ---
+        const translations = {
+            'si': {
+                headerTitle: "⚡ EV Diagnostic Chatbot",
+                headerSubtitle: "ඔබගේ EV ගැටලු ගැන විශේෂඥයාගෙන් අහන්න.",
+                welcomeMessage: "**ආයුබෝවන්!** මම ඔබගේ EV රෝග විනිශ්චය සහයක (Diagnostic Expert). ඔබගේ වාහනයේ ඇති ගැටලුව හෝ දෝෂ කේතය (Error Code) සිංහලෙන් හෝ ඉංග්‍රීසියෙන් ඇතුළත් කරන්න. මම එය විශ්ලේෂණය කර පිළියම් යෝජනා කරන්නම්.",
+                inputPlaceholder: "උදා: Battery pack එකේ power loss වෙනවා වගේ දැනෙනවා...",
+                sendTitle: "Send Message (යවන්න)",
+                apiError: "දෝෂයක් සිදුවිය: {error} (An error occurred: {error}). කරුණාකර ඔබගේ API Key එක නිවැරදි දැයි පරීක්ෂා කරන්න.",
+                apiSuccessError: "සමාවෙන්න, මට පිළිතුරක් ලබා ගැනීමට නොහැකි විය. නැවත උත්සාහ කරන්න.",
+                systemPrompt: `You are an expert Electric Vehicle (EV) diagnostic technician. Your role is to provide step-by-step troubleshooting, explain technical faults, and offer practical advice.
+                - **You MUST respond exclusively in SINHALA.**
+                - You can mix in necessary English technical terms (like 'Error Code', 'BMS', 'Inverter') where appropriate.
+                - Keep the conversation context relevant to EV diagnosis.
+                - Be helpful, conversational, and clear.`
+            },
+            'en': {
+                headerTitle: "⚡ EV Diagnostic Chatbot",
+                headerSubtitle: "Ask the expert about your EV problems.",
+                welcomeMessage: "**Hello!** I am your EV Diagnostic Expert. Please enter your vehicle's problem or error code in English or Sinhala. I will analyze it and suggest solutions.",
+                inputPlaceholder: "E.g.: I feel a power loss in the battery pack...",
+                sendTitle: "Send Message",
+                apiError: "An error occurred: {error}. Please check if your API Key is correct.",
+                apiSuccessError: "Sorry, I couldn't get a response. Please try again.",
+                systemPrompt: `You are an expert Electric Vehicle (EV) diagnostic technician. Your role is to provide step-by-step troubleshooting, explain technical faults, and offer practical advice.
+                - **You MUST respond exclusively in ENGLISH.**
+                - Keep the conversation context relevant to EV diagnosis.
+                - Be helpful, conversational, and clear.`
+            }
+        };
 
         // --- UI & Utility Functions ---
 
@@ -115,11 +164,6 @@
         const inputField = document.getElementById('user-input-field');
         const sendButton = document.getElementById('send-button');
 
-        /**
-         * Adds a message to the chat display area.
-         * @param {string} text - The message content.
-         * @param {string} role - 'user' or 'model'.
-         */
         function displayMessage(text, role) {
             const messageWrapper = document.createElement('div');
             messageWrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
@@ -129,8 +173,8 @@
             
             if (role === 'user') {
                 messageBubble.className += ' user-message rounded-br-sm';
+                messageBubble.textContent = text;
             } else {
-                // Formatting AI response (basic markdown to HTML conversion)
                 const formattedText = text
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                     .replace(/\n\n/g, '<br><br>')
@@ -139,10 +183,6 @@
                 messageBubble.className += ' ai-message rounded-tl-sm';
             }
             
-            if (role === 'user') {
-                messageBubble.textContent = text;
-            }
-
             messageWrapper.appendChild(messageBubble);
             chatContainer.appendChild(messageWrapper);
             chatContainer.scrollTop = chatContainer.scrollHeight; // Scroll to bottom
@@ -158,6 +198,32 @@
                    </svg>`;
         }
 
+        // --- LANGUAGE SWITCHING LOGIC ---
+        window.setLanguage = function(lang) {
+            if (lang === currentLanguage) return; // No change
+            currentLanguage = lang;
+            
+            // Update UI text
+            const t = translations[lang];
+            document.getElementById('header-title').textContent = t.headerTitle;
+            document.getElementById('header-subtitle').textContent = t.headerSubtitle;
+            inputField.placeholder = t.inputPlaceholder;
+            sendButton.title = t.sendTitle;
+            
+            // Update button active state
+            document.getElementById('lang-si-btn').classList.toggle('active', lang === 'si');
+            document.getElementById('lang-en-btn').classList.toggle('active', lang === 'en');
+
+            // Update system prompt for AI
+            systemPrompt = t.systemPrompt;
+            
+            // Clear chat and add new welcome message
+            chatContainer.innerHTML = '';
+            displayMessage(t.welcomeMessage, 'model');
+            
+            // Reset chat history
+            chatHistory = []; 
+        }
 
         // --- GEMINI API CALL LOGIC ---
         
@@ -205,7 +271,6 @@
 
             // 2. Prepare Payload (Sending the full history for context)
             const payload = {
-                // Contents include the entire history
                 contents: chatHistory, 
                 systemInstruction: {
                     parts: [{ text: systemPrompt }]
@@ -221,22 +286,22 @@
                     displayMessage(modelResponse, 'model');
                     chatHistory.push({ role: 'model', parts: [{ text: modelResponse }] });
                 } else {
-                    displayMessage("සමාවෙන්න, මට පිළිතුරක් ලබා ගැනීමට නොහැකි විය. නැවත උත්සාහ කරන්න.", 'model');
+                    displayMessage(translations[currentLanguage].apiSuccessError, 'model');
                 }
 
             } catch (error) {
                 console.error("Gemini API Error:", error);
-                displayMessage(`දෝෂයක් සිදුවිය: ${error.message} (An error occurred: ${error.message}). කරුණාකර ඔබගේ API Key එක නිවැරදි දැයි පරීක්ෂා කරන්න.`, 'model');
+                const errorMsg = translations[currentLanguage].apiError.replace('{error}', error.message);
+                displayMessage(errorMsg, 'model');
             } finally {
                 toggleLoading(false);
             }
         };
 
-        // Initialize by ensuring we can type when ready
-        window.onload = function() {
-            inputField.focus();
-        };
-
+        // --- INITIALIZATION ---
+        setLanguage('si'); // Set default language on load
+        inputField.focus();
+        
     </script>
 </body>
 </html>

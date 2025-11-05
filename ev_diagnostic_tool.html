@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EV Diagnostic Assistant (EV රෝග විනිශ්චය සහයක)</title>
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .card {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* Custom scrollbar for better aesthetics */
+        #output-area::-webkit-scrollbar {
+            width: 8px;
+        }
+        #output-area::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen">
+
+    <div class="container mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-blue-700">⚡ EV Error Management System</h1>
+            <p class="text-lg text-gray-600 mt-2">වාහනයේ ඇති ගැටළුව සිංහලෙන් පහතින් ඇතුළත් කරන්න (AI මඟින් විශ්ලේෂණය කෙරේ).</p>
+        </header>
+
+        <main class="grid md:grid-cols-2 gap-8">
+            <!-- Input Card -->
+            <div class="card bg-white p-6 rounded-xl">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">1. ගැටළුව විස්තර කරන්න (Describe the Issue)</h2>
+                <textarea id="issue-input" rows="8" placeholder="උදා: මගේ EV එකේ charge එක කලින් වගේ තියෙන්නේ නෑ, ගොඩක් ඉක්මනට බහිනවා. Dashboard එකේ තැඹිලි පාට warning light එකක් පෙන්නනවා."
+                          class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-base"></textarea>
+
+                <button id="diagnose-button" onclick="diagnoseError()"
+                        class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50">
+                    🔍 දෝෂය විශ්ලේෂණය කරන්න (Diagnose Error)
+                </button>
+            </div>
+
+            <!-- Output Card -->
+            <div class="card bg-white p-6 rounded-xl">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">2. රෝග විනිශ්චය සහ විසඳුම් (Diagnosis & Solutions)</h2>
+                <div id="output-area" class="h-80 overflow-y-auto p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    මෙහි AI මඟින් ලබා දෙන රෝග විනිශ්චය සහ නිවැරදි කිරීමේ පියවර දිස් වනු ඇත.
+                </div>
+                <div id="loading-indicator" class="hidden mt-4 text-center">
+                    <div class="flex items-center justify-center space-x-2">
+                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                        <span class="text-blue-600 font-medium">විශ්ලේෂණය වෙමින් පවතී... (Analyzing...)</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        // Firebase Setup (Mandatory in this environment, even if not used for data persistence)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, db, auth;
+
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            // Authentication logic
+            if (initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).catch(e => console.error("Firebase Custom Auth Failed:", e));
+            } else {
+                signInAnonymously(auth).catch(e => console.error("Firebase Anonymous Auth Failed:", e));
+            }
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+            // Non-critical: App will still function for Gemini API calls
+        }
+        
+        // --- GEMINI API CONSTANTS AND FUNCTIONS ---
+        const apiKey = ""; // API key is handled by the environment
+        const model = "gemini-2.5-flash-preview-09-2025";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+        // System Instruction: Defines the AI's role and output format (Crucial for a good response)
+        const systemPrompt = `You are an expert Electric Vehicle (EV) diagnostic technician. Your user is describing a problem in Sinhala. Your task is to analyze the Sinhala input, identify the MOST LIKELY vehicle fault/error, and provide practical troubleshooting steps or recommendations.
+
+MANDATORY OUTPUT FORMAT: You MUST structure your response into two main, clearly separated sections. Use clear Sinhala, but include the technical English term for accuracy.
+
+1. **Diagnosis (රෝග විනිශ්චය)**: State the most likely fault.
+   Example: High Voltage Battery Degradation (අධි වෝල්ටීයතා බැටරි හායනය)
+   Example: 12V Battery Failure (12V බැටරිය ක්‍රියා විරහිත වීම)
+
+2. **Fix/Solution (පිළියම්/විසඳුම්)**: Provide a numbered list of 3-5 practical steps the user should take. Prioritize simple checks first, then recommendations for professional service. Write these steps in clear Sinhala.
+`;
+
+        /**
+         * Executes the fetch call with exponential backoff for resilience.
+         * @param {Object} payload - The request body.
+         * @param {number} retries - Current retry count.
+         */
+        async function fetchWithBackoff(payload, retries = 0) {
+            const maxRetries = 5;
+            const delay = Math.pow(2, retries) * 1000; // 1s, 2s, 4s, 8s, 16s
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.status === 429 && retries < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithBackoff(payload, retries + 1);
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                return response.json();
+
+            } catch (error) {
+                if (retries < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithBackoff(payload, retries + 1);
+                }
+                throw new Error("API call failed after multiple retries.");
+            }
+        }
+
+        /**
+         * Main function to trigger the EV diagnosis.
+         */
+        window.diagnoseError = async function() {
+            const inputElement = document.getElementById('issue-input');
+            const outputElement = document.getElementById('output-area');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const button = document.getElementById('diagnose-button');
+
+            const userQuery = inputElement.value.trim();
+
+            if (userQuery.length < 10) {
+                outputElement.textContent = "කරුණාකර ඔබගේ වාහනයේ ගැටළුව පිළිබඳව වැඩි විස්තර ඇතුළත් කරන්න (Please enter more details about your vehicle issue).";
+                return;
+            }
+
+            // UI state management
+            button.disabled = true;
+            loadingIndicator.classList.remove('hidden');
+            outputElement.innerHTML = 'විශ්ලේෂණය වෙමින් පවතී...';
+
+            // Construct API payload
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                // Google Search is not strictly necessary for general diagnostics but can be added if we want the model to check current recalls or common issues.
+                // tools: [{ "google_search": {} }],
+            };
+
+            try {
+                const result = await fetchWithBackoff(payload);
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    // Replace markdown with HTML for better display and Sinhala line breaks
+                    const formattedText = text
+                        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-600">$1</strong>') // Bold text
+                        .replace(/\n\n/g, '<br><br>') // Double newline to paragraph break
+                        .replace(/\n/g, '<br>') // Single newline to line break
+                        .replace(/^(#+)\s*(.*)/gm, (match, hashes, content) => { // Handle markdown headers (optional)
+                            const size = 6 - hashes.length; // h2 to h6
+                            return `<h${size} class="text-${30 - size*2}xl font-semibold mt-4">${content}</h${size}>`;
+                        });
+
+                    outputElement.innerHTML = formattedText;
+                } else {
+                    outputElement.textContent = "සමාවෙන්න, රෝග විනිශ්චය ලබා ගැනීමට නොහැකි විය. නැවත උත්සාහ කරන්න. (Could not retrieve diagnosis. Please try again.)";
+                }
+
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                outputElement.textContent = `දෝෂයක් සිදුවිය: ${error.message} (An error occurred: ${error.message})`;
+            } finally {
+                button.disabled = false;
+                loadingIndicator.classList.add('hidden');
+            }
+        };
+    </script>
+</body>
+</html>

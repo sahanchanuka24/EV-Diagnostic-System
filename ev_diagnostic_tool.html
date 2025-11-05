@@ -10,35 +10,35 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #eef2ff; /* Light blue background */
+            background-color: #eef2ff;
         }
         .chat-container {
             max-width: 700px;
-            height: 85vh; /* 85% of viewport height */
+            height: 85vh; 
             position: relative;
         }
         .message-area {
-            height: calc(100% - 7rem); /* Height minus input box */
+            height: calc(100% - 7rem);
         }
         .user-message {
-            background-color: #3b82f6; /* Blue for user */
+            background-color: #4f0404; 
             color: white;
             border-bottom-right-radius: 4px;
         }
         .ai-message {
-            background-color: #ffffff; /* White for AI */
-            color: #1f2937; /* Dark gray text */
+            background-color: #ffffff; 
+            color: #1f2937; 
             border-bottom-left-radius: 4px;
         }
-        /* Custom scrollbar for better aesthetics */
+        
         .message-area::-webkit-scrollbar {
             width: 8px;
         }
         .message-area::-webkit-scrollbar-thumb {
-            background-color: #93c5fd; /* Light blue scrollbar */
+            background-color: #3e0101; 
             border-radius: 4px;
         }
-        /* Language button styling */
+        
         .lang-btn {
             padding: 0.25rem 0.75rem;
             border-radius: 0.5rem;
@@ -51,7 +51,7 @@
         }
         .lang-btn.active {
             background-color: #ffffff;
-            color: #3b82f6;
+            color: #450101;
             font-weight: 600;
             border-color: #ffffff;
         }
@@ -63,7 +63,7 @@
         <header class="p-4 border-b border-blue-200 bg-blue-600 rounded-t-xl text-white flex justify-between items-center">
             <div>
                 <h1 id="header-title" class="text-2xl font-bold"> EV Diagnostic Chatbot</h1>
-                <p id="header-subtitle" class="text-sm opacity-90"></p>
+                <p id="header-subtitle" class="text-sm opacity-90">Ask Anything you want about your vehicle...</p>
             </div>
             
             <div class="flex items-center space-x-2">
@@ -131,7 +131,7 @@
         const translations = {
             'si': {
                 headerTitle: "⚡ EV Diagnostic Chatbot",
-                headerSubtitle: "ඔබගේ EV ගැටලු ගැන විශේෂඥයාගෙන් අහන්න.",
+                headerSubtitle: "",
                 welcomeMessage: "**ආයුබෝවන්!** මම ඔබගේ EV රෝග විනිශ්චය සහයක (Diagnostic Expert). ඔබගේ වාහනයේ ඇති ගැටලුව හෝ දෝෂ කේතය (Error Code) සිංහලෙන් හෝ ඉංග්‍රීසියෙන් ඇතුළත් කරන්න. මම එය විශ්ලේෂණය කර පිළියම් යෝජනා කරන්නම්.",
                 inputPlaceholder: "උදා: Battery pack එකේ power loss වෙනවා වගේ දැනෙනවා...",
                 sendTitle: "Send Message (යවන්න)",

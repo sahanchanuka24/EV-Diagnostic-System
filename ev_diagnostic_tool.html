@@ -3,86 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EV Diagnostic Assistant (EV රෝග විනිශ්චය සහයක)</title>
+    <title>EV Diagnostic Chatbot (EV රෝග විනිශ්චය Chatbot)</title>
     <!-- Load Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS for Map Integration -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20n6a916B08Obz95LUnT7J+L1/k4wW4fKz1B5y0l/c0="
+     crossorigin=""></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f7f7f7;
+            background-color: #eef2ff; /* Light blue background */
         }
-        .container {
-            max-width: 900px;
+        .chat-container {
+            max-width: 700px;
+            height: 85vh; /* 85% of viewport height */
+            position: relative; /* For floating button */
         }
-        .card {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        .message-area {
+            height: calc(100% - 7rem); /* Height minus input box */
+        }
+        .user-message {
+            background-color: #3b82f6; /* Blue for user */
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .ai-message {
+            background-color: #ffffff; /* White for AI */
+            color: #1f2937; /* Dark gray text */
+            border-bottom-left-radius: 4px;
         }
         /* Custom scrollbar for better aesthetics */
-        #output-area::-webkit-scrollbar {
+        .message-area::-webkit-scrollbar {
             width: 8px;
         }
-        #output-area::-webkit-scrollbar-thumb {
-            background-color: #d1d5db;
+        .message-area::-webkit-scrollbar-thumb {
+            background-color: #93c5fd; /* Light blue scrollbar */
             border-radius: 4px;
+        }
+        /* Modal and Map Styling */
+        .modal {
+            background-color: rgba(0, 0, 0, 0.7);
+            transition: opacity 0.3s ease;
+        }
+        #map {
+            height: 90%; /* Map takes most of the modal height */
+            border-radius: 0.5rem;
         }
     </style>
 </head>
-<body class="p-4 sm:p-8 min-h-screen">
+<body class="flex items-center justify-center p-4 sm:p-8">
 
-    <div class="container mx-auto">
-        <header class="text-center mb-10">
-            <h1 class="text-4xl font-extrabold text-blue-700">⚡ EV Error Management System</h1>
-            <p class="text-lg text-gray-600 mt-2">වාහනයේ ඇති ගැටළුව සිංහලෙන් පහතින් ඇතුළත් කරන්න (AI මඟින් විශ්ලේෂණය කෙරේ).</p>
+    <div class="chat-container w-full bg-white rounded-xl shadow-2xl flex flex-col">
+        <header class="p-4 border-b border-blue-200 bg-blue-600 rounded-t-xl text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">⚡ EV Diagnostic Chatbot</h1>
+                <p class="text-sm opacity-90">ඔබගේ EV ගැටලු ගැන විශේෂඥයාගෙන් අහන්න. (Ask your EV problems from the expert.)</p>
+            </div>
+            <!-- New Contact Agent Button -->
+            <button id="contact-agent-button" onclick="contactAgent()"
+                    class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-xl transition duration-300 transform hover:scale-105 shadow-lg flex items-center text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3"/><path d="m3 2.92 7 7c1 1 2 1 3 0l7-7"/></svg>
+                Contact Agent (Agent අමතන්න)
+            </button>
         </header>
 
-        <main class="grid md:grid-cols-2 gap-8">
-            <!-- Input Card -->
-            <div class="card bg-white p-6 rounded-xl">
-                <h2 class="text-xl font-semibold mb-4 text-gray-800">1. ගැටළුව විස්තර කරන්න (Describe the Issue)</h2>
-                <textarea id="issue-input" rows="8" placeholder="උදා: මගේ EV එකේ charge එක කලින් වගේ තියෙන්නේ නෑ, ගොඩක් ඉක්මනට බහිනවා. Dashboard එකේ තැඹිලි පාට warning light එකක් පෙන්නනවා."
-                          class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-base"></textarea>
-
-                <button id="diagnose-button" onclick="diagnoseError()"
-                        class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50">
-                    🔍 දෝෂය විශ්ලේෂණය කරන්න (Diagnose Error)
-                </button>
-            </div>
-
-            <!-- Output Card -->
-            <div class="card bg-white p-6 rounded-xl">
-                <h2 class="text-xl font-semibold mb-4 text-gray-800">2. රෝග විනිශ්චය සහ විසඳුම් (Diagnosis & Solutions)</h2>
-                <div id="output-area" class="h-80 overflow-y-auto p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 whitespace-pre-wrap leading-relaxed">
-                    මෙහි AI මඟින් ලබා දෙන රෝග විනිශ්චය සහ නිවැරදි කිරීමේ පියවර දිස් වනු ඇත.
-                </div>
-                <div id="loading-indicator" class="hidden mt-4 text-center">
-                    <div class="flex items-center justify-center space-x-2">
-                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                        <span class="text-blue-600 font-medium">විශ්ලේෂණය වෙමින් පවතී... (Analyzing...)</span>
-                    </div>
+        <!-- Message Display Area -->
+        <div id="chat-container" class="message-area overflow-y-auto p-4 flex flex-col space-y-4">
+            <!-- Initial welcome message -->
+            <div class="flex justify-start">
+                <div class="ai-message p-3 rounded-xl rounded-tl-sm max-w-xs md:max-w-md shadow-md text-sm">
+                    **ආයුබෝවන්!** මම ඔබගේ EV රෝග විනිශ්චය සහයක (Diagnostic Expert). ඔබගේ වාහනයේ ඇති ගැටලුව හෝ දෝෂ කේතය (Error Code) සිංහලෙන් හෝ ඉංග්‍රීසියෙන් ඇතුළත් කරන්න. මම එය විශ්ලේෂණය කර පිළියම් යෝජනා කරන්නම්.
                 </div>
             </div>
-        </main>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 border-t border-gray-200 flex items-center h-28">
+            <textarea id="user-input-field" rows="2" placeholder="උදා: Battery pack එකේ power loss වෙනවා වගේ දැනෙනවා..."
+                      class="flex-grow p-3 border-2 border-gray-300 rounded-lg resize-none focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-base"
+                      onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
+            
+            <button id="send-button" onclick="sendMessage()"
+                    class="ml-3 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full h-12 w-12 flex items-center justify-center transition duration-300 transform hover:scale-105 disabled:opacity-50"
+                    title="Send Message">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send">
+                    <path d="m22 2-7 7m-11 5 5-5m5 5-5-5-5 5V7l7-7"/>
+                </svg>
+            </button>
+        </div>
     </div>
 
+    <!-- Map Modal -->
+    <div id="map-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden opacity-0">
+        <div class="bg-white rounded-xl shadow-2xl w-11/12 md:w-3/4 lg:w-2/3 h-5/6 p-4 flex flex-col">
+            <h2 class="text-xl font-bold mb-3 text-gray-800 border-b pb-2">📍 ආසන්නතම සේවා මධ්‍යස්ථාන (Nearest Service Stations)</h2>
+            <div id="map" class="flex-grow"></div>
+            <p id="map-status" class="mt-2 text-sm text-center text-gray-600">ඔබගේ ස්ථානයට ආසන්නතම සේවා මධ්‍යස්ථාන සිතියමෙන් පරීක්ෂා කරන්න.</p>
+            <button onclick="closeMapModal()" class="mt-3 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition duration-300">
+                සිතියම වසන්න (Close Map)
+            </button>
+        </div>
+    </div>
+
+    <!-- API and Logic Script -->
     <script type="module">
-        // Firebase Setup (Mandatory in this environment, even if not used for data persistence)
+        // --- FIREBASE SETUP (REQUIRED BY ENVIRONMENT) ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by the Canvas environment
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
         let app, db, auth;
 
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
-
-            // Authentication logic
             if (initialAuthToken) {
                 signInWithCustomToken(auth, initialAuthToken).catch(e => console.error("Firebase Custom Auth Failed:", e));
             } else {
@@ -90,34 +133,66 @@
             }
         } catch (error) {
             console.error("Firebase Initialization Error:", error);
-            // Non-critical: App will still function for Gemini API calls
         }
         
-        // --- GEMINI API CONSTANTS AND FUNCTIONS ---
-        const apiKey = "AIzaSyDnbihne9d01hcr6kSK8Dp66d4ZeeH1q-g"; // API key is handled by the environment
+        // --- GEMINI API CONSTANTS AND STATE ---
+        const apiKey = ""; 
         const model = "gemini-2.5-flash-preview-09-2025";
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-        // System Instruction: Defines the AI's role and output format (Crucial for a good response)
-        const systemPrompt = `You are an expert Electric Vehicle (EV) diagnostic technician. Your user is describing a problem in Sinhala. Your task is to analyze the Sinhala input, identify the MOST LIKELY vehicle fault/error, and provide practical troubleshooting steps or recommendations.
+        let chatHistory = []; 
 
-MANDATORY OUTPUT FORMAT: You MUST structure your response into two main, clearly separated sections. Use clear Sinhala, but include the technical English term for accuracy.
+        const systemPrompt = `You are an expert Electric Vehicle (EV) diagnostic technician. Your role is to provide step-by-step troubleshooting, explain technical faults, and offer practical advice to the user. Respond to all queries in a helpful, conversational manner, primarily using Sinhala while mixing in necessary English technical terms (like 'Error Code', 'BMS', 'Inverter'). Keep the conversation context relevant to EV diagnosis.`;
 
-1. **Diagnosis (රෝග විනිශ්චය)**: State the most likely fault.
-   Example: High Voltage Battery Degradation (අධි වෝල්ටීයතා බැටරි හායනය)
-   Example: 12V Battery Failure (12V බැටරිය ක්‍රියා විරහිත වීම)
 
-2. **Fix/Solution (පිළියම්/විසඳුම්)**: Provide a numbered list of 3-5 practical steps the user should take. Prioritize simple checks first, then recommendations for professional service. Write these steps in clear Sinhala.
-`;
+        // --- UI & Utility Functions ---
 
-        /**
-         * Executes the fetch call with exponential backoff for resilience.
-         * @param {Object} payload - The request body.
-         * @param {number} retries - Current retry count.
-         */
+        const chatContainer = document.getElementById('chat-container');
+        const inputField = document.getElementById('user-input-field');
+        const sendButton = document.getElementById('send-button');
+        const mapModal = document.getElementById('map-modal');
+        const mapStatus = document.getElementById('map-status');
+
+        function displayMessage(text, role) {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+
+            const messageBubble = document.createElement('div');
+            messageBubble.className = `p-3 rounded-xl max-w-xs md:max-w-md shadow-md text-sm whitespace-pre-wrap`;
+            
+            if (role === 'user') {
+                messageBubble.className += ' user-message rounded-br-sm';
+                messageBubble.textContent = text;
+            } else {
+                const formattedText = text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n\n/g, '<br><br>')
+                    .replace(/\n/g, '<br>');
+                messageBubble.innerHTML = formattedText;
+                messageBubble.className += ' ai-message rounded-tl-sm';
+            }
+            
+            messageWrapper.appendChild(messageBubble);
+            chatContainer.appendChild(messageWrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight; // Scroll to bottom
+        }
+
+        function toggleLoading(isLoading) {
+            sendButton.disabled = isLoading;
+            inputField.disabled = isLoading;
+            sendButton.innerHTML = isLoading 
+                ? '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>'
+                : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send">
+                    <path d="m22 2-7 7m-11 5 5-5m5 5-5-5-5 5V7l7-7"/>
+                   </svg>`;
+        }
+
+
+        // --- GEMINI API CALL LOGIC ---
+        
         async function fetchWithBackoff(payload, retries = 0) {
             const maxRetries = 5;
-            const delay = Math.pow(2, retries) * 1000; // 1s, 2s, 4s, 8s, 16s
+            const delay = Math.pow(2, retries) * 1000;
 
             try {
                 const response = await fetch(apiUrl, {
@@ -146,64 +221,180 @@ MANDATORY OUTPUT FORMAT: You MUST structure your response into two main, clearly
             }
         }
 
-        /**
-         * Main function to trigger the EV diagnosis.
-         */
-        window.diagnoseError = async function() {
-            const inputElement = document.getElementById('issue-input');
-            const outputElement = document.getElementById('output-area');
-            const loadingIndicator = document.getElementById('loading-indicator');
-            const button = document.getElementById('diagnose-button');
+        window.sendMessage = async function() {
+            const userText = inputField.value.trim();
 
-            const userQuery = inputElement.value.trim();
+            if (!userText) return;
 
-            if (userQuery.length < 10) {
-                outputElement.textContent = "කරුණාකර ඔබගේ වාහනයේ ගැටළුව පිළිබඳව වැඩි විස්තර ඇතුළත් කරන්න (Please enter more details about your vehicle issue).";
-                return;
-            }
+            // 1. Update UI and State for User Message
+            displayMessage(userText, 'user');
+            chatHistory.push({ role: 'user', parts: [{ text: userText }] });
+            inputField.value = '';
+            toggleLoading(true);
 
-            // UI state management
-            button.disabled = true;
-            loadingIndicator.classList.remove('hidden');
-            outputElement.innerHTML = 'විශ්ලේෂණය වෙමින් පවතී...';
-
-            // Construct API payload
+            // 2. Prepare Payload (Sending the full history for context)
             const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
+                contents: chatHistory, 
                 systemInstruction: {
                     parts: [{ text: systemPrompt }]
                 },
-                // Google Search is not strictly necessary for general diagnostics but can be added if we want the model to check current recalls or common issues.
-                // tools: [{ "google_search": {} }],
             };
 
             try {
                 const result = await fetchWithBackoff(payload);
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const modelResponse = result?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-                if (text) {
-                    // Replace markdown with HTML for better display and Sinhala line breaks
-                    const formattedText = text
-                        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-600">$1</strong>') // Bold text
-                        .replace(/\n\n/g, '<br><br>') // Double newline to paragraph break
-                        .replace(/\n/g, '<br>') // Single newline to line break
-                        .replace(/^(#+)\s*(.*)/gm, (match, hashes, content) => { // Handle markdown headers (optional)
-                            const size = 6 - hashes.length; // h2 to h6
-                            return `<h${size} class="text-${30 - size*2}xl font-semibold mt-4">${content}</h${size}>`;
-                        });
-
-                    outputElement.innerHTML = formattedText;
+                if (modelResponse) {
+                    // 3. Update UI and State for AI Message
+                    displayMessage(modelResponse, 'model');
+                    chatHistory.push({ role: 'model', parts: [{ text: modelResponse }] });
                 } else {
-                    outputElement.textContent = "සමාවෙන්න, රෝග විනිශ්චය ලබා ගැනීමට නොහැකි විය. නැවත උත්සාහ කරන්න. (Could not retrieve diagnosis. Please try again.)";
+                    displayMessage("සමාවෙන්න, මට පිළිතුරක් ලබා ගැනීමට නොහැකි විය. නැවත උත්සාහ කරන්න.", 'model');
                 }
 
             } catch (error) {
                 console.error("Gemini API Error:", error);
-                outputElement.textContent = `දෝෂයක් සිදුවිය: ${error.message} (An error occurred: ${error.message})`;
+                displayMessage(`දෝෂයක් සිදුවිය: ${error.message} (An error occurred: ${error.message}). කරුණාකර ඔබගේ API Key එක නිවැරදි දැයි පරීක්ෂා කරන්න.`, 'model');
             } finally {
-                button.disabled = false;
-                loadingIndicator.classList.add('hidden');
+                toggleLoading(false);
             }
+        };
+
+        // Initialize by ensuring we can type when ready
+        window.onload = function() {
+            inputField.focus();
+        };
+
+        // --- MAP AND LOCATION LOGIC ---
+
+        // Mock Service Station Data (Example locations in Sri Lanka)
+        const mockServiceStations = [
+            { name: "EV Service Center - Colombo", lat: 6.9023, lng: 79.8617, address: "Union Place, Colombo 2" },
+            { name: "Fast Charge & Service - Kandy", lat: 7.2906, lng: 80.6337, address: "Peradeniya Road, Kandy" },
+            { name: "Green Motors Workshop - Galle", lat: 6.0535, lng: 80.2210, address: "Matara Road, Galle" },
+            { name: "EV Hub - Kurunegala", lat: 7.4851, lng: 80.3601, address: "Dambulla Road, Kurunegala" }
+        ];
+
+        let map = null;
+
+        /**
+         * Calculates the distance between two geographical points (Haversine formula).
+         * Used to find the nearest station.
+         */
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius of Earth in kilometers
+            const dLat = (lat2 - lat1) * (Math.PI / 180);
+            const dLon = (lon2 - lon1) * (Math.PI / 180);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c; // Distance in km
+        }
+
+        /**
+         * Initializes and displays the Leaflet map with markers.
+         */
+        function loadLeaflet(userLat, userLng) {
+            const defaultLocation = [7.8731, 80.7718]; // Center of Sri Lanka
+
+            // Check if map already exists and destroy it
+            if (map !== null) {
+                map.remove();
+                map = null;
+            }
+
+            // Initialize map
+            map = L.map('map', { 
+                center: [userLat || defaultLocation[0], userLng || defaultLocation[1]], 
+                zoom: 10 // Start zoomed in
+            });
+
+            // Add tile layer (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Add markers for service stations
+            mockServiceStations.forEach(station => {
+                const distance = getDistance(userLat, userLng, station.lat, station.lng);
+                L.marker([station.lat, station.lng])
+                    .addTo(map)
+                    .bindPopup(`
+                        <strong>${station.name}</strong><br>
+                        ${station.address}<br>
+                        ${userLat ? `Distance: ${distance.toFixed(2)} km` : ''}
+                    `);
+            });
+
+            // Add user marker if location is available
+            if (userLat) {
+                L.marker([userLat, userLng]).addTo(map)
+                    .bindPopup("Your Current Location").openPopup();
+                
+                // Find nearest station and highlight it (optional: center map on nearest)
+                const nearest = findNearestStation(userLat, userLng);
+                mapStatus.textContent = `ඔබට ආසන්නතම සේවා මධ්‍යස්ථානය: ${nearest.station.name} (${nearest.distance.toFixed(2)} km).`;
+            } else {
+                 mapStatus.textContent = `ඔබගේ ස්ථානයට ප්‍රවේශ වීමට නොහැකි විය. කෙසේ වෙතත්, සියලුම සේවා මධ්‍යස්ථාන සිතියමේ ඇත.`;
+            }
+
+             // Ensure the map updates its display size after the modal is shown
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 100);
+        }
+        
+        /**
+         * Finds the closest station to the given user coordinates.
+         */
+        function findNearestStation(userLat, userLng) {
+            let nearest = null;
+            let minDistance = Infinity;
+
+            mockServiceStations.forEach(station => {
+                const distance = getDistance(userLat, userLng, station.lat, station.lng);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = { station, distance };
+                }
+            });
+            return nearest;
+        }
+
+        /**
+         * Main function triggered by the 'Contact Agent' button.
+         * Gets user location and displays the map modal.
+         */
+        window.contactAgent = function() {
+            mapModal.classList.remove('hidden');
+            // Animate fade-in
+            setTimeout(() => mapModal.classList.add('opacity-100'), 10);
+            
+            mapStatus.textContent = "ඔබගේ ස්ථානය සොයා ගනිමින්... (Locating your position...)";
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
+                        loadLeaflet(userLat, userLng);
+                    },
+                    (error) => {
+                        console.error("Geolocation Error:", error);
+                        // If location fails, load map centered on a default location
+                        loadLeaflet(); 
+                        mapStatus.textContent = "ස්ථානය ලබා ගැනීමට අවසර නැත. සිතියම Default ස්ථානයකින් පෙන්වයි. (Permission denied. Map shown at default location.)";
+                    }
+                );
+            } else {
+                loadLeaflet(); // Load without user location
+                mapStatus.textContent = "ඔබගේ බ්‍රව්සරය Geolocation සඳහා සහය නොදක්වයි. (Your browser does not support Geolocation.)";
+            }
+        };
+
+        window.closeMapModal = function() {
+            mapModal.classList.remove('opacity-100');
+            setTimeout(() => mapModal.classList.add('hidden'), 300);
         };
     </script>
 </body>

@@ -6,14 +6,6 @@
     <title>EV Diagnostic Chatbot (EV රෝග විනිශ්චය Chatbot)</title>
     <!-- Load Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Leaflet CSS for Map Integration -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-     integrity="sha256-20n6a916B08Obz95LUnT7J+L1/k4wW4fKz1B5y0l/c0="
-     crossorigin=""></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
@@ -23,7 +15,6 @@
         .chat-container {
             max-width: 700px;
             height: 85vh; /* 85% of viewport height */
-            position: relative; /* For floating button */
         }
         .message-area {
             height: calc(100% - 7rem); /* Height minus input box */
@@ -46,31 +37,14 @@
             background-color: #93c5fd; /* Light blue scrollbar */
             border-radius: 4px;
         }
-        /* Modal and Map Styling */
-        .modal {
-            background-color: rgba(0, 0, 0, 0.7);
-            transition: opacity 0.3s ease;
-        }
-        #map {
-            height: 90%; /* Map takes most of the modal height */
-            border-radius: 0.5rem;
-        }
     </style>
 </head>
 <body class="flex items-center justify-center p-4 sm:p-8">
 
     <div class="chat-container w-full bg-white rounded-xl shadow-2xl flex flex-col">
-        <header class="p-4 border-b border-blue-200 bg-blue-600 rounded-t-xl text-white flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-bold">⚡ EV Diagnostic Chatbot</h1>
-                <p class="text-sm opacity-90">ඔබගේ EV ගැටලු ගැන විශේෂඥයාගෙන් අහන්න. (Ask your EV problems from the expert.)</p>
-            </div>
-            <!-- New Contact Agent Button -->
-            <button id="contact-agent-button" onclick="contactAgent()"
-                    class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-xl transition duration-300 transform hover:scale-105 shadow-lg flex items-center text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3"/><path d="m3 2.92 7 7c1 1 2 1 3 0l7-7"/></svg>
-                Contact Agent (Agent අමතන්න)
-            </button>
+        <header class="p-4 border-b border-blue-200 bg-blue-600 rounded-t-xl text-white">
+            <h1 class="text-2xl font-bold">⚡ EV Diagnostic Chatbot</h1>
+            <p class="text-sm opacity-90">ඔබගේ EV ගැටලු ගැන විශේෂඥයාගෙන් අහන්න. (Ask your EV problems from the expert.)</p>
         </header>
 
         <!-- Message Display Area -->
@@ -95,18 +69,6 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send">
                     <path d="m22 2-7 7m-11 5 5-5m5 5-5-5-5 5V7l7-7"/>
                 </svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- Map Modal -->
-    <div id="map-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden opacity-0">
-        <div class="bg-white rounded-xl shadow-2xl w-11/12 md:w-3/4 lg:w-2/3 h-5/6 p-4 flex flex-col">
-            <h2 class="text-xl font-bold mb-3 text-gray-800 border-b pb-2">📍 ආසන්නතම සේවා මධ්‍යස්ථාන (Nearest Service Stations)</h2>
-            <div id="map" class="flex-grow"></div>
-            <p id="map-status" class="mt-2 text-sm text-center text-gray-600">ඔබගේ ස්ථානයට ආසන්නතම සේවා මධ්‍යස්ථාන සිතියමෙන් පරීක්ෂා කරන්න.</p>
-            <button onclick="closeMapModal()" class="mt-3 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition duration-300">
-                සිතියම වසන්න (Close Map)
             </button>
         </div>
     </div>
@@ -136,10 +98,12 @@
         }
         
         // --- GEMINI API CONSTANTS AND STATE ---
-        const apiKey = ""; 
+        // NOTE: Replace "" with your actual API key if running locally on your computer!
+        const apiKey = "AIzaSyDnbihne9d01hcr6kSK8Dp66d4ZeeH1q-g"; 
         const model = "gemini-2.5-flash-preview-09-2025";
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
+        // Chat History state to maintain context
         let chatHistory = []; 
 
         const systemPrompt = `You are an expert Electric Vehicle (EV) diagnostic technician. Your role is to provide step-by-step troubleshooting, explain technical faults, and offer practical advice to the user. Respond to all queries in a helpful, conversational manner, primarily using Sinhala while mixing in necessary English technical terms (like 'Error Code', 'BMS', 'Inverter'). Keep the conversation context relevant to EV diagnosis.`;
@@ -150,9 +114,12 @@
         const chatContainer = document.getElementById('chat-container');
         const inputField = document.getElementById('user-input-field');
         const sendButton = document.getElementById('send-button');
-        const mapModal = document.getElementById('map-modal');
-        const mapStatus = document.getElementById('map-status');
 
+        /**
+         * Adds a message to the chat display area.
+         * @param {string} text - The message content.
+         * @param {string} role - 'user' or 'model'.
+         */
         function displayMessage(text, role) {
             const messageWrapper = document.createElement('div');
             messageWrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
@@ -162,8 +129,8 @@
             
             if (role === 'user') {
                 messageBubble.className += ' user-message rounded-br-sm';
-                messageBubble.textContent = text;
             } else {
+                // Formatting AI response (basic markdown to HTML conversion)
                 const formattedText = text
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                     .replace(/\n\n/g, '<br><br>')
@@ -172,6 +139,10 @@
                 messageBubble.className += ' ai-message rounded-tl-sm';
             }
             
+            if (role === 'user') {
+                messageBubble.textContent = text;
+            }
+
             messageWrapper.appendChild(messageBubble);
             chatContainer.appendChild(messageWrapper);
             chatContainer.scrollTop = chatContainer.scrollHeight; // Scroll to bottom
@@ -234,6 +205,7 @@
 
             // 2. Prepare Payload (Sending the full history for context)
             const payload = {
+                // Contents include the entire history
                 contents: chatHistory, 
                 systemInstruction: {
                     parts: [{ text: systemPrompt }]
@@ -265,137 +237,6 @@
             inputField.focus();
         };
 
-        // --- MAP AND LOCATION LOGIC ---
-
-        // Mock Service Station Data (Example locations in Sri Lanka)
-        const mockServiceStations = [
-            { name: "EV Service Center - Colombo", lat: 6.9023, lng: 79.8617, address: "Union Place, Colombo 2" },
-            { name: "Fast Charge & Service - Kandy", lat: 7.2906, lng: 80.6337, address: "Peradeniya Road, Kandy" },
-            { name: "Green Motors Workshop - Galle", lat: 6.0535, lng: 80.2210, address: "Matara Road, Galle" },
-            { name: "EV Hub - Kurunegala", lat: 7.4851, lng: 80.3601, address: "Dambulla Road, Kurunegala" }
-        ];
-
-        let map = null;
-
-        /**
-         * Calculates the distance between two geographical points (Haversine formula).
-         * Used to find the nearest station.
-         */
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Radius of Earth in kilometers
-            const dLat = (lat2 - lat1) * (Math.PI / 180);
-            const dLon = (lon2 - lon1) * (Math.PI / 180);
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c; // Distance in km
-        }
-
-        /**
-         * Initializes and displays the Leaflet map with markers.
-         */
-        function loadLeaflet(userLat, userLng) {
-            const defaultLocation = [7.8731, 80.7718]; // Center of Sri Lanka
-
-            // Check if map already exists and destroy it
-            if (map !== null) {
-                map.remove();
-                map = null;
-            }
-
-            // Initialize map
-            map = L.map('map', { 
-                center: [userLat || defaultLocation[0], userLng || defaultLocation[1]], 
-                zoom: 10 // Start zoomed in
-            });
-
-            // Add tile layer (OpenStreetMap)
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-
-            // Add markers for service stations
-            mockServiceStations.forEach(station => {
-                const distance = getDistance(userLat, userLng, station.lat, station.lng);
-                L.marker([station.lat, station.lng])
-                    .addTo(map)
-                    .bindPopup(`
-                        <strong>${station.name}</strong><br>
-                        ${station.address}<br>
-                        ${userLat ? `Distance: ${distance.toFixed(2)} km` : ''}
-                    `);
-            });
-
-            // Add user marker if location is available
-            if (userLat) {
-                L.marker([userLat, userLng]).addTo(map)
-                    .bindPopup("Your Current Location").openPopup();
-                
-                // Find nearest station and highlight it (optional: center map on nearest)
-                const nearest = findNearestStation(userLat, userLng);
-                mapStatus.textContent = `ඔබට ආසන්නතම සේවා මධ්‍යස්ථානය: ${nearest.station.name} (${nearest.distance.toFixed(2)} km).`;
-            } else {
-                 mapStatus.textContent = `ඔබගේ ස්ථානයට ප්‍රවේශ වීමට නොහැකි විය. කෙසේ වෙතත්, සියලුම සේවා මධ්‍යස්ථාන සිතියමේ ඇත.`;
-            }
-
-             // Ensure the map updates its display size after the modal is shown
-            setTimeout(() => {
-                map.invalidateSize();
-            }, 100);
-        }
-        
-        /**
-         * Finds the closest station to the given user coordinates.
-         */
-        function findNearestStation(userLat, userLng) {
-            let nearest = null;
-            let minDistance = Infinity;
-
-            mockServiceStations.forEach(station => {
-                const distance = getDistance(userLat, userLng, station.lat, station.lng);
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    nearest = { station, distance };
-                }
-            });
-            return nearest;
-        }
-
-        /**
-         * Main function triggered by the 'Contact Agent' button.
-         * Gets user location and displays the map modal.
-         */
-        window.contactAgent = function() {
-            mapModal.classList.remove('hidden');
-            // Animate fade-in
-            setTimeout(() => mapModal.classList.add('opacity-100'), 10);
-            
-            mapStatus.textContent = "ඔබගේ ස්ථානය සොයා ගනිමින්... (Locating your position...)";
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const userLat = position.coords.latitude;
-                        const userLng = position.coords.longitude;
-                        loadLeaflet(userLat, userLng);
-                    },
-                    (error) => {
-                        console.error("Geolocation Error:", error);
-                        // If location fails, load map centered on a default location
-                        loadLeaflet(); 
-                        mapStatus.textContent = "ස්ථානය ලබා ගැනීමට අවසර නැත. සිතියම Default ස්ථානයකින් පෙන්වයි. (Permission denied. Map shown at default location.)";
-                    }
-                );
-            } else {
-                loadLeaflet(); // Load without user location
-                mapStatus.textContent = "ඔබගේ බ්‍රව්සරය Geolocation සඳහා සහය නොදක්වයි. (Your browser does not support Geolocation.)";
-            }
-        };
-
-        window.closeMapModal = function() {
-            mapModal.classList.remove('opacity-100');
-            setTimeout(() => mapModal.classList.add('hidden'), 300);
-        };
     </script>
 </body>
 </html>
